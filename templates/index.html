@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MaskGuard – Face Mask Detection</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="brand-icon"></div>
+    <span>MaskGuard</span>
+  </div>
+  <div class="nav-pills">
+    <button class="nav-pill active" onclick="switchTab('image')">Image detect</button>
+    <button class="nav-pill" onclick="switchTab('webcam')">Live webcam</button>
+    <button class="nav-pill" onclick="switchTab('metrics')">Metrics</button>
+  </div>
+  <div class="nav-status" id="modelStatus">
+    <span class="status-dot"></span>Model ready
+  </div>
+</nav>
+
+<main class="main">
+
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <div class="hero-grid-bg"></div>
+    <div class="hero-inner">
+      <div class="hero-chip">MobileNetV2 · Transfer Learning · Real-time</div>
+      <h1>Face mask<br/><span class="hero-accent">detection system</span></h1>
+      <p class="hero-desc">Upload an image or use your webcam to detect mask compliance in real time using deep learning.</p>
+    </div>
+    <div class="hero-counters">
+      <div class="hc"><span class="hc-n">98%+</span><span class="hc-l">Accuracy</span></div>
+      <div class="hc-div"></div>
+      <div class="hc"><span class="hc-n">Real-time</span><span class="hc-l">Webcam stream</span></div>
+      <div class="hc-div"></div>
+      <div class="hc"><span class="hc-n">Multi-face</span><span class="hc-l">Detection</span></div>
+    </div>
+  </section>
+
+  <!-- ── IMAGE TAB ── -->
+  <section class="tab-section active" id="tab-image">
+    <div class="container">
+      <div class="two-col">
+
+        <!-- Upload -->
+        <div class="panel">
+          <div class="panel-label">Upload image</div>
+          <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <div class="drop-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+            </div>
+            <p class="drop-text">Click or drag an image here</p>
+            <p class="drop-sub">JPG, PNG, WEBP supported</p>
+            <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(event)"/>
+          </div>
+
+          <div class="preview-wrap" id="previewWrap" style="display:none">
+            <img id="previewImg" alt="preview"/>
+            <button class="clear-btn" onclick="clearImage()">✕ Clear</button>
+          </div>
+
+          <div class="example-row">
+            <span class="ex-label">Or try:</span>
+            <button class="ex-btn" onclick="loadSample('mask')">With mask sample</button>
+            <button class="ex-btn" onclick="loadSample('nomask')">Without mask sample</button>
+          </div>
+
+          <button class="btn-detect" id="detectBtn" onclick="detectImage()">
+            <span id="detectTxt">Detect masks</span>
+            <div class="btn-spinner hidden" id="detectSpinner"></div>
+          </button>
+        </div>
+
+        <!-- Result -->
+        <div class="panel result-panel" id="resultPanel">
+          <div class="panel-label">Detection result</div>
+          <div class="result-placeholder" id="resultPlaceholder">
+            <div class="placeholder-ring"></div>
+            <p>Result will appear here</p>
+          </div>
+          <div id="resultContent" class="hidden">
+            <img id="resultImg" class="result-img" alt="result"/>
+            <div class="result-stats" id="resultStats"></div>
+            <div class="verdict-banner" id="verdictBanner"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── WEBCAM TAB ── -->
+  <section class="tab-section" id="tab-webcam">
+    <div class="container">
+      <div class="webcam-layout">
+        <div class="panel webcam-panel">
+          <div class="panel-label">Live webcam feed</div>
+          <div class="stream-wrap" id="streamWrap">
+            <div class="stream-idle" id="streamIdle">
+              <div class="cam-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                  <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                </svg>
+              </div>
+              <p>Camera is off</p>
+            </div>
+            <img id="videoFeed" src="" alt="webcam" style="display:none; width:100%; border-radius:8px;"/>
+          </div>
+          <div class="cam-controls">
+            <button class="btn-cam start" id="startCamBtn" onclick="startCam()">Start camera</button>
+            <button class="btn-cam stop hidden" id="stopCamBtn" onclick="stopCam()">Stop camera</button>
+          </div>
+          <p class="cam-note">Green box = mask worn · Red box = no mask · Numbers show confidence %</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── METRICS TAB ── -->
+  <section class="tab-section" id="tab-metrics">
+    <div class="container">
+      <div class="metrics-wrap" id="metricsWrap">
+        <div class="loading-metrics">Loading metrics…</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── HOW IT WORKS ── -->
+<section class="how-section">
+  <div class="container">
+    <h2 class="how-title">How it works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-n">01</div>
+        <h3>Face detection</h3>
+        <p>Haar Cascade classifier locates all faces in the image or video frame.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-n">02</div>
+        <h3>ROI extraction</h3>
+        <p>Each face is cropped, resized to 224×224 and preprocessed for MobileNetV2.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-n">03</div>
+        <h3>Classification</h3>
+        <p>Transfer-learned MobileNetV2 head predicts with_mask vs without_mask.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-n">04</div>
+        <h3>Visualization</h3>
+        <p>Bounding boxes with labels and confidence scores drawn on output frame.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  MaskGuard · MobileNetV2 Transfer Learning · OpenCV · Flask · TensorFlow
+</footer>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
