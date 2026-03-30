@@ -1,0 +1,10 @@
+dataset/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+venv/
+.venv/
+node_modules/
+.env.local
+.DS_Store
