@@ -72,7 +72,7 @@ python train_model.py
 python app.py
 ```
 
-Open: http://localhost:5000
+Open: http://127.0.0.1:8080
 
 ---
 
@@ -102,7 +102,7 @@ Open: http://localhost:5000
 
 ### POST /api/predict/image
 ```bash
-curl -X POST http://localhost:5000/api/predict/image \
+curl -X POST http://127.0.0.1:8080/api/predict/image \
   -F "image=@/path/to/photo.jpg"
 ```
 Response:

@@ -46,14 +46,14 @@ fi
 echo ""
 echo "▶ [5/6] Opening browser..."
 sleep 2
-open "http://localhost:5000" 2>/dev/null || xdg-open "http://localhost:5000" 2>/dev/null || true
+open "http://127.0.0.1:8080" 2>/dev/null || xdg-open "http://127.0.0.1:8080" 2>/dev/null || true
 
 echo ""
 echo "▶ [6/6] Starting server..."
 echo ""
 echo "╔══════════════════════════════════════════════╗"
 echo "║  ✅ MaskGuard is ready!                      ║"
-echo "║  🌐 http://localhost:5000                    ║"
+echo "║  🌐 http://127.0.0.1:8080                    ║"
 echo "║  🎥 Webcam tab for live detection            ║"
 echo "║  🛑 Stop: Press Ctrl+C                       ║"
 echo "╚══════════════════════════════════════════════╝"

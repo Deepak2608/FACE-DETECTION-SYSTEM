@@ -33,12 +33,12 @@ if not exist "model\mask_detector.keras" (
 echo.
 echo [5/6] Opening browser...
 timeout /t 2 /nobreak >nul
-start http://localhost:5000
+start http://127.0.0.1:8080
 
 echo.
 echo [6/6] Starting server...
 echo.
-echo  MaskGuard ready at http://localhost:5000
+echo  MaskGuard ready at http://127.0.0.1:8080
 echo  Press Ctrl+C to stop
 echo.
 python app.py
