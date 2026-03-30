@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=65.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "face-mask-detection"
+version = "1.0.0"
+description = "Face Mask Detection System"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "flask==3.0.0",
+    "opencv-python==4.9.0.80",
+    "numpy==1.26.2",
+    "tensorflow==2.15.0",
+    "Pillow==10.2.0",
+    "requests==2.31.0",
+    "scikit-learn"
+]
+
+[tool.uv]
+python-version = "3.11"
