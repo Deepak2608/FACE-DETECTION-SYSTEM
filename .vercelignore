@@ -11,3 +11,8 @@ node_modules/
 push_output.log
 .python-version
 pyproject.toml
+*.ipynb
+train_model.py
+convert_to_onnx.py
+requirements-dev.txt
+.gitattributes
