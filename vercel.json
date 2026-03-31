@@ -2,15 +2,19 @@
   "version": 2,
   "builds": [
     {
-  "src": "app.py",
-  "use": "@vercel/python",
-  "config": {
-    "maxLambdaSize": "150mb",
-    "pythonVersion": "3.11"
-  }
-}
+      "src": "app.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "150mb",
+        "pythonVersion": "3.11"
+      }
+    }
   ],
   "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
     {
       "src": "/(.*)",
       "dest": "app.py"
@@ -18,8 +22,4 @@
   ],
   "env": {
     "PYTHONUNBUFFERED": "1"
-  },
-"builds": [...],
-"routes": [...],
-"runtime": "...",
-"pythonVersion": "..."
+  }
