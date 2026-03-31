@@ -1,7 +1,8 @@
 """
-app.py
+app.py (Lightweight Version)
 ------
-Flask backend for Face Mask Detection System.
+Flask backend for Face Mask Detection System - Optimized for Vercel's 500MB Lambda limit.
+Uses ONNX Runtime (~50MB) instead of TensorFlow (~2GB).
 
 Endpoints:
     GET  /                    - Main web page
@@ -20,23 +21,21 @@ import base64
 import threading
 import numpy as np
 from flask import Flask, request, jsonify, render_template, Response
-import tensorflow as tf
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-from tensorflow.keras.preprocessing.image import img_to_array
 from PIL import Image
 
 app = Flask(__name__)
 
 # ── Globals ────────────────────────────────────────────────────────────────────
-MODEL_PATH   = "model/mask_detector.keras"
-LB_PATH      = "model/label_binarizer.pkl"
-METRICS_PATH = "model/metrics.pkl"
+MODEL_PATH_KERAS = "model/mask_detector.keras"
+MODEL_PATH_ONNX  = "model/mask_detector.onnx"
+LB_PATH          = "model/label_binarizer.pkl"
+METRICS_PATH     = "model/metrics.pkl"
 FACE_CASCADE = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
 IMG_SIZE = 224
 
-model    = None
+ort_session = None
 lb       = None
 metrics  = {}
 
@@ -44,35 +43,92 @@ camera        = None
 camera_lock   = threading.Lock()
 camera_active = False
 
-# ── Load model ─────────────────────────────────────────────────────────────────
+
+# ── Model Loading ──────────────────────────────────────────────────────────────
 def load_assets():
-    global model, lb, metrics
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError("Model not found. Run  python train_model.py  first.")
-    model = tf.keras.models.load_model(MODEL_PATH)
+    """Load ONNX model and label binarizer. Try ONNX first, fall back to Keras."""
+    global ort_session, lb, metrics
+    
+    # Try ONNX first (preferred - lightweight)
+    if os.path.exists(MODEL_PATH_ONNX):
+        print("📦 Loading ONNX model...")
+        try:
+            import onnxruntime as rt
+            ort_session = rt.InferenceSession(MODEL_PATH_ONNX, providers=['CPUExecutionProvider'])
+            print("✅ ONNX model loaded successfully!")
+        except Exception as e:
+            print(f"⚠️  ONNX loading failed: {e}. Trying Keras...")
+            _load_keras_fallback()
+    
+    # Fallback: Load Keras model
+    elif os.path.exists(MODEL_PATH_KERAS):
+        print("📦 Loading Keras model...")
+        _load_keras_fallback()
+    else:
+        raise FileNotFoundError(f"❌ Model not found (checked {MODEL_PATH_KERAS}, {MODEL_PATH_ONNX})")
+    
+    # Load label binarizer
     with open(LB_PATH, "rb") as f:
         lb = pickle.load(f)
+    
+    # Load metrics if available
     if os.path.exists(METRICS_PATH):
         with open(METRICS_PATH, "rb") as f:
             metrics = pickle.load(f)
-    print("✅ Model loaded.")
+    
+    print("✅ All assets loaded.")
 
-load_assets()
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+def _load_keras_fallback():
+    """Fallback: Load Keras model for inference (heavier, but works)."""
+    try:
+        import tensorflow as tf
+        global _model_keras
+        _model_keras = tf.keras.models.load_model(MODEL_PATH_KERAS)
+        print("✅ Using Keras/TensorFlow for inference")
+    except ImportError:
+        raise ImportError("❌ TensorFlow not available. Install: pip install tensorflow")
+
+
+# ── Inference ──────────────────────────────────────────────────────────────────
 def predict_face_roi(face_roi):
-    """Run mask classifier on a cropped face region."""
+    """Run mask classifier on a cropped face region using ONNX or TensorFlow."""
+    global ort_session
+    
     face = cv2.cvtColor(face_roi, cv2.COLOR_BGR2RGB)
     face = cv2.resize(face, (IMG_SIZE, IMG_SIZE))
-    face = img_to_array(face)
-    face = preprocess_input(face)
-    face = np.expand_dims(face, axis=0)
-    preds = model.predict(face, verbose=0)[0]
+    face = face.astype(np.float32) / 255.0  # Normalize
+    face = np.expand_dims(face, axis=0)    # Add batch dimension
+    
+    if ort_session is not None:
+        # Use ONNX Runtime (fast, lightweight)
+        try:
+            input_name = ort_session.get_inputs()[0].name
+            output_name = ort_session.get_outputs()[0].name
+            preds = ort_session.run([output_name], {input_name: face})[0][0]
+        except Exception as e:
+            print(f"ONNX inference failed: {e}")
+            preds = _predict_keras(face)[0]
+    else:
+        # Fallback to TensorFlow
+        preds = _predict_keras(face)[0]
+    
     idx   = np.argmax(preds)
     label = lb.classes_[idx]
     conf  = float(preds[idx])
     return label, conf
 
+
+def _predict_keras(face):
+    """Helper to predict using TensorFlow/Keras."""
+    global _model_keras
+    if '_model_keras' not in globals():
+        import tensorflow as tf
+        globals()['_model_keras'] = tf.keras.models.load_model(MODEL_PATH_KERAS)
+    return _model_keras.predict(face, verbose=0)
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
 def draw_detections(frame):
     """Detect faces and draw bounding boxes with mask labels."""
     gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -95,6 +151,7 @@ def draw_detections(frame):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
     return frame, stats
 
+
 def gen_frames():
     """Generator for MJPEG webcam stream."""
     global camera, camera_active
@@ -109,6 +166,7 @@ def gen_frames():
         _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
         yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
                + buffer.tobytes() + b"\r\n")
+
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 @app.route("/")
@@ -186,5 +244,6 @@ def get_metrics():
 
 
 if __name__ == "__main__":
+    load_assets()
     port = int(os.environ.get("PORT", 8080))
     app.run(debug=False, host="0.0.0.0", port=port, threaded=True)
